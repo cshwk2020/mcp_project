@@ -475,6 +475,7 @@ class MCPOdooSyncService:
             })
         return lines
 
+    """
     def _map_shoplify_order_head(self, order, warehouse):
         return {
             "partner_id": order.get("customer", {}).get("id"),
@@ -494,6 +495,7 @@ class MCPOdooSyncService:
                 "price_unit": line.get("price"),
             })
         return lines
+    """
 
     def _get_models(self, odoo_user, odoo_pass):
         common = xmlrpc.client.ServerProxy(f"{ODOO_BASE_URL}/xmlrpc/2/common")
