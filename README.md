@@ -3,7 +3,7 @@
 ### our business test case
 
 
-> ### Introduction: 
+### Introduction: 
 
 流程整理 (Online Store → Odoo → Xero):
 
@@ -44,7 +44,7 @@ Back reference：Xero entry 要 refer back Odoo Sale Ref。
 
 ### Screenshot of our business test case
 
-> centralized odoo warehouse: location for woocommerce, is whwoo/Stock. 
+centralized odoo warehouse: location for woocommerce, is whwoo/Stock. 
 
 ![](./odoo_sync_xero_doc/img_odoo_wh_woocommerce.jpg)
 
