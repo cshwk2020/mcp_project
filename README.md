@@ -151,6 +151,14 @@ beside mcp workflow, there is a ODOO module, sync_tracker module that inherits s
 
 ---
 
+### Summary of key coding : 
+
+### - extract code snippets
+
+### - start from tests/*
+
+---
+
 ### woocommerce tests: 
 
 ### - tests/odoo_sync/test_odoo_sync_woocommerce_orders.py 
