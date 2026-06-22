@@ -433,7 +433,7 @@ warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(wareh
 
 - ### tests/odoo_sync/test_xero_flow.py 
 
-> call MCP server, xero_sync_service.sync_all_transactions(access_token, xero_tenant_id)
+> ### call MCP server, xero_sync_service.sync_all_transactions(access_token, xero_tenant_id)
 
 ```
 @pytest.fixture(scope="module")
