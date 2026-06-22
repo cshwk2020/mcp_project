@@ -178,9 +178,9 @@ def test_sync_woocommerce_orders_full_fields(odoo_sync_service):
 
 ### - sync woocommerce orders to odoo
 
-> MCPOdooSyncService > sync_woocommerce_orders_to_odoo(orders, warehouse_code="whwoo")
+> ### MCPOdooSyncService > sync_woocommerce_orders_to_odoo(orders, warehouse_code="whwoo")
 
-> idempotent sync API : _revoke_order + _create_order
+> ### idempotent sync API : _revoke_order + _create_order
 ```
 warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(warehouse_code)
 .......
@@ -208,7 +208,7 @@ warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(wareh
         })
 ```
 
-> MCPOdooSyncService > sync_woocommerce_orders_to_odoo > _revoke_order(order_ref, delivery_type_id):
+> ### MCPOdooSyncService > sync_woocommerce_orders_to_odoo > _revoke_order(order_ref, delivery_type_id):
 ```
     # client_order_ref is odoo ref back to woocommerce order id
 
@@ -340,7 +340,7 @@ warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(wareh
 ```
 
 
-> MCPOdooSyncService > sync_woocommerce_orders_to_odoo > _create_order(order, warehouse_id, lot_stock_id, delivery_type_id, map_head, map_lines):
+> ### MCPOdooSyncService > sync_woocommerce_orders_to_odoo > _create_order(order, warehouse_id, lot_stock_id, delivery_type_id, map_head, map_lines):
 ```
         #
         order_ref = str(order.get("id"))
@@ -421,9 +421,9 @@ warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(wareh
 
 ------
 
-###  sync ODOO sale.order and stock.picking to XERO
+### sync ODOO sale.order and stock.picking to XERO
 
-### - tests/odoo_sync/test_xero_flow.py 
+- ### tests/odoo_sync/test_xero_flow.py 
 
 > call MCP server, xero_sync_service.sync_all_transactions(access_token, xero_tenant_id)
 
@@ -481,7 +481,7 @@ def test_sync_all_transactions(xero_sync_service):
 
 ### xero authorize and get back tokens 
 
-### - xero_config.py ( build_authorize_url ) and xero_callback_app.py ( @app.route("/api/sync/odoo2xero", methods=["POST"]) def xero_callback() ... )
+- ### xero_config.py ( build_authorize_url ) and xero_callback_app.py ( @app.route("/api/sync/odoo2xero", methods=["POST"]) def xero_callback() ... )
 
 > prepare login url to xero authorize for necessary permission. Note that the login is not fixed, it depend on our permisison needs 
 
@@ -593,7 +593,7 @@ id_token : JWT，包含用戶 profile（email、name 等）。
 
 ### sync ODOO sale.order and stock.picking to XERO
 
-> 設計：Head + Detail 雙層同步
+> ### 設計：Head + Detail 雙層同步
 
 ```
 Header = Transaction entry → Xero可以有乾淨嘅「主交易」。
@@ -620,7 +620,7 @@ Stock Move (Detail):
 保證成本正確。
 ```
 
-> 三層狀態再精準定義L pre_sync, sync, post_sync
+> ### 三層狀態再精準定義L pre_sync, sync, post_sync
 
 ```
 Pre‑Sync:
@@ -652,7 +652,7 @@ Sync = 熱狀態，只係過渡期，唔能長期停留。
 ```
 
 
-> ensure sync BOTH sale_orders and related pickings to XERO to keep balance
+> ### ensure sync BOTH sale_orders and related pickings to XERO to keep balance
 
 ```
 first build sale_order_map that group sale order and related stock picking together 
@@ -664,7 +664,7 @@ and call push_stock_pickings_to_xero(pickings, access_token, tenant_id)
 ```
 
 
-> MCPXeroSyncService > sync_all_transactions(access_token, tenant_id)
+> ### MCPXeroSyncService > sync_all_transactions(access_token, tenant_id)
 
 pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pickings_to_xero
 
@@ -683,7 +683,7 @@ pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pick
 
  
 
-> MCPXeroSyncService > pull_odoo_sale_orders_and_pickings(....)  
+> ### MCPXeroSyncService > pull_odoo_sale_orders_and_pickings(....)  
 
 ```
 
@@ -821,7 +821,7 @@ pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pick
 
 
 
-> MCPXeroSyncService > push_sale_orders_to_xero(sale_orders, access_token, tenant_id)
+> ### MCPXeroSyncService > push_sale_orders_to_xero(sale_orders, access_token, tenant_id)
 
 ```
     headers = {
@@ -873,7 +873,7 @@ pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pick
 
 ```
 
-> MCPXeroSyncService > push_stock_pickings_to_xero(pickings, access_token, tenant_id)
+> ### MCPXeroSyncService > push_stock_pickings_to_xero(pickings, access_token, tenant_id)
 
 ```
     headers = {
