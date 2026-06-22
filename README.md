@@ -524,12 +524,13 @@ def build_authorize_url():
 
 > ### call build_authorize_url() -> get back login url to xero:
 
+```
 https://login.xero.com/identity/connect/authorize?response_type=code
 &client_id=BFFAF1576AA9423F833DF4A4730A06C1
 &redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fsync%2Fodoo2xero
 &scope=openid+profile+email+offline_access+accounting.invoices+accounting.contacts
 &state=...
-
+```
 
 > ### after login success, xero will callback into our flask app and we save tokens to xero_tokens.json, callback url [ via XERO_REDIRECT_URI = "http://localhost:8000/api/sync/odoo2xero" ] , which is set into XERO website,
 
@@ -955,4 +956,23 @@ pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pick
 
 ```
 
+
+---
+---
+
+## Appendix: Next Future Iteration
+
+- For current iteration, we focus in woocommerce -> odoo -> xero.
+
+>  For next iteration, 
+
+> add shoplify -> odoo -> xero.
+
+- check that odoo can handle both sync from woocommerce and shoplify, 
+
+> auto re-allocate product QTY from ODOO to woocommerce and shoplify, 
+
+- ensure no oversell in either online store by locking product QTY in ODOO virtual warehouse of woocommerce and shoplify,
+
+- auto re-allocate product QTY of the ODOO virtaul warehouses if one online store near SOLD OUT and another online store not selling.
 
