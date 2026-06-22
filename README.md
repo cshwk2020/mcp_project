@@ -1,0 +1,1 @@
+/Volumes/sdcard/PORTFOLIO_2026/PY3.10_BASE/odoo_expense/README.md
