@@ -1,0 +1,4 @@
+2026-06-19 06:46:15,661 - easyocr.easyocr - WARNING - Neither CUDA nor MPS are available - defaulting to CPU. Note: This module is much faster with a GPU.
+2026-06-19 06:46:21,979 - hypercorn.error - INFO - Running on http://0.0.0.0:8000 (CTRL + C to quit)
+2026-06-22 09:04:42,207 - easyocr.easyocr - WARNING - Neither CUDA nor MPS are available - defaulting to CPU. Note: This module is much faster with a GPU.
+2026-06-22 09:04:48,197 - hypercorn.error - INFO - Running on http://0.0.0.0:8000 (CTRL + C to quit)
