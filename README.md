@@ -138,7 +138,7 @@ Back reference：Xero entry 要 refer back Odoo Sale Ref。
 - tests/test_xero/test_xero_flow.py : unit test and integration test of sync data from ODOO sale.order and stock.picking into XERO invoices and COGS. This file is our project focus.
 
 
-### - ODOO module : sync_tracker 
+- ### ODOO module : sync_tracker 
     
 beside mcp workflow, there is a ODOO module, sync_tracker module that inherits sale.order and stock.picking, to keeps record of last_sync_time and sync status for WooCommerce/Shopify/Xero integrations, 
 
@@ -155,7 +155,7 @@ beside mcp workflow, there is a ODOO module, sync_tracker module that inherits s
 
 ### - tests/odoo_sync/test_odoo_sync_woocommerce_orders.py 
 
-> call MCP server, odoo_sync_service.sync_woocommerce_orders_to_odoo (orders, warehouse_code="whwoo")
+> ### call MCP server, odoo_sync_service.sync_woocommerce_orders_to_odoo (orders, warehouse_code="whwoo")
 
 ```
 @pytest.fixture(scope="module")
@@ -483,7 +483,7 @@ def test_sync_all_transactions(xero_sync_service):
 
 - ### xero_config.py ( build_authorize_url ) and xero_callback_app.py ( @app.route("/api/sync/odoo2xero", methods=["POST"]) def xero_callback() ... )
 
-> prepare login url to xero authorize for necessary permission. Note that the login is not fixed, it depend on our permisison needs 
+> ### prepare login url to xero authorize for necessary permission. Note that the login is not fixed, it depend on our permisison needs 
 
 ```
 def build_authorize_url():
@@ -514,7 +514,7 @@ def build_authorize_url():
 
 ```
 
-call build_authorize_url() -> get back login url to xero:
+> ### call build_authorize_url() -> get back login url to xero:
 
 https://login.xero.com/identity/connect/authorize?response_type=code
 &client_id=BFFAF1576AA9423F833DF4A4730A06C1
@@ -523,7 +523,7 @@ https://login.xero.com/identity/connect/authorize?response_type=code
 &state=...
 
 
-> after login success, xero will callback into our flask app and we save tokens to xero_tokens.json, callback url [ via XERO_REDIRECT_URI = "http://localhost:8000/api/sync/odoo2xero" ] , which is set into XERO website,
+> ### after login success, xero will callback into our flask app and we save tokens to xero_tokens.json, callback url [ via XERO_REDIRECT_URI = "http://localhost:8000/api/sync/odoo2xero" ] , which is set into XERO website,
 
 ```
 @app.route("/api/sync/odoo2xero", methods=["POST", "GET"])
@@ -570,7 +570,7 @@ if __name__ == '__main__':
 
 ```
 
-> Xero OAuth2 Token Lifecycle
+> ### Xero OAuth2 Token Lifecycle
 
 auth_code -> refresh_token (expired if not used within 60 days)  -> access_token (id_token, expired 30 mins)
 
