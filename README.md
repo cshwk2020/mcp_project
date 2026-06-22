@@ -28,21 +28,26 @@ Dr COGS
 After Reconcil：
 
 Dr Sales Unconfirmed
-    Cr Sales Confirmed
-Dr Bank
     Cr Bank Unconfirmed
+Dr Bank
+    Cr Sales Confirmed
+     
 Back reference：Xero entry 要 refer back Odoo Sale Ref。
 
 ```
 
-- First, we make a online order in woocommerce, paid and then use woocommerce api to sync order into odoo sale order.   
+Prototyping Setup:
 
-- Then, we sync sale order and stock picking from odoo to xero as invoice and COGS.
+- first, we make a online order in woocommerce, paid,
+
+- and then use woocommerce api to sync order into odoo sale order.   
+
+- finally, we sync sale order and stock picking from odoo to xero as invoice and COGS.
 
 - Our focus is to demo python code to sync sale.order and stock.picking from ODOO to Xero as invoice and COGS.
 
 
-### Screenshot of our business test case
+### Screenshot of Prototyping test cases
 
 > ### centralized odoo warehouse: location for woocommerce, is whwoo/Stock. 
 
@@ -93,7 +98,7 @@ Back reference：Xero entry 要 refer back Odoo Sale Ref。
 
 
 
-
+---
 ---
 
 > ## github repo
@@ -148,7 +153,7 @@ beside mcp workflow, there is a ODOO module, sync_tracker module that inherits s
 
 - model/stocking_picking.py : inherits stock.picking to add sync related fields for keep track of api sync status.
 
-
+---
 ---
 
 ### Summary of key coding : 
@@ -964,13 +969,13 @@ pull_odoo_sale_orders_and_pickings -> push_sale_orders_to_xero + push_stock_pick
 
 - For current iteration, we focus in woocommerce -> odoo -> xero.
 
->  For next iteration, 
+>  ### For next iteration, 
 
-> add shoplify -> odoo -> xero.
+> ### add shoplify -> odoo -> xero.
 
 - check that odoo can handle both sync from woocommerce and shoplify, 
 
-> auto re-allocate product QTY from ODOO to woocommerce and shoplify, 
+> ### auto re-allocate product QTY from ODOO to woocommerce and shoplify, 
 
 - ensure no oversell in either online store by locking product QTY in ODOO virtual warehouse of woocommerce and shoplify,
 
