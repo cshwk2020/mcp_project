@@ -48,46 +48,46 @@ centralized odoo warehouse: location for woocommerce, is whwoo/Stock.
 
 ![](./odoo_sync_xero_doc/img_odoo_wh_woocommerce.jpg)
 
-> woocommerce online product
+woocommerce online product
 
 ![](./odoo_sync_xero_doc/img_woo_product.jpg)
 
 
-> woocommerce order list
+woocommerce order list
 
 ![](./odoo_sync_xero_doc/img_woo_order_list.jpg)
 
-> woocommerce order detail
+woocommerce order detail
 
 ![](./odoo_sync_xero_doc/img_woo_order_detail.jpg)
 
-> woocommerce api to sync order to odoo 
+woocommerce api to sync order to odoo 
 
 ![](./odoo_sync_xero_doc/img_woo_sync_order.jpg)
 
-> odoo sale.order list: Instead of overwrite SAME sale order records on resync same order, we cancel previous order and recreate new order, for purpose of leaving as audit trail of history of changes.
+odoo sale.order list: Instead of overwrite SAME sale order records on resync same order, we cancel previous order and recreate new order, for purpose of leaving as audit trail of history of changes.
 
 ![](./odoo_sync_xero_doc/img_odoo_sale_order_list.jpg)
 
-> odoo sale.order detail 
+odoo sale.order detail 
 
 ![](./odoo_sync_xero_doc/img_odoo_sale_order_detail.jpg)
 
-> odoo stock.picking list: Instead of overwrite SAME stock picking records on resync same order, we cancel previous order and create reverse return picking [ from customer to warehouse ], and recreate new order and picking [ from warehouse to customer ] again, for purpose of leaving as audit trail of history of changes.
+odoo stock.picking list: Instead of overwrite SAME stock picking records on resync same order, we cancel previous order and create reverse return picking [ from customer to warehouse ], and recreate new order and picking [ from warehouse to customer ] again, for purpose of leaving as audit trail of history of changes.
 
 ![](./odoo_sync_xero_doc/img_odoo_stock_picking_list.jpg)
 
-> odoo stock.picking detail 
+odoo stock.picking detail 
 
 ![](./odoo_sync_xero_doc/img_odoo_stock_picking_detail.jpg)
 
-> After sync invoice and picking from ODOO TO XERO invoice and COGS
+After sync invoice and picking from ODOO TO XERO invoice and COGS
 
-> xero invoice: status is awaiting, as we modelled it as waiting for staff to "bank reconcilation" to verify transaction in bank. 
+xero invoice: status is awaiting, as we modelled it as waiting for staff to "bank reconcilation" to verify transaction in bank. 
 
 ![](./odoo_sync_xero_doc/img_xero_invoice.jpg)
 
-> xero profit and loss report
+xero profit and loss report
 
 ![](./odoo_sync_xero_doc/img_xero_profit_and_loss.jpg)
 
