@@ -14,6 +14,8 @@ from mcp_project.mcp_servers.mcp_api_sync.mcp_odoo_sync_woocommerce_service impo
 from mcp_project.mcp_servers.mcp_api_sync.mcp_odoo_sync_shoplify_service import MCPOdooSyncShoplifyService 
 from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_service import MCPXeroSyncService 
 from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_item_service import MCPXeroSyncItemService
+from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_po_service import MCPXeroSyncPurchaseOrderService
+from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_so_service import MCPXeroSyncSalesOrderService
 from mcp_project.mcp_shared.mcp_odoo_client import MCPOdooClient    
 
 
@@ -54,8 +56,11 @@ _odoo_expense_service = MCPOdooExpenseService(_ocr_service)
 _llm_prompt_ocr = MCPLLMExtractOcrService(_odoo_expense_service, _llm_service)
 _api_sync_woocommerce_to_odoo = MCPOdooSyncWoocommerceService(odoo_client)
 _api_sync_shoplify_to_odoo = MCPOdooSyncShoplifyService(odoo_client)
+#
 _api_sync_odoo_to_xero = MCPXeroSyncService()
 _api_sync_odoo_item_to_xero = MCPXeroSyncItemService(odoo_client)
+_api_sync_odoo_po_to_xero = MCPXeroSyncPurchaseOrderService(odoo_client)
+_api_sync_odoo_so_to_xero = MCPXeroSyncSalesOrderService(odoo_client)
 #
 registry = ServiceRegistry()
 registry.register("hello_", HelloWorldService())
@@ -65,9 +70,10 @@ registry.register("odoo_expense_", _odoo_expense_service)
 registry.register("llmprompt_", _llm_prompt_ocr)
 registry.register("sync_odoo_woo_", _api_sync_woocommerce_to_odoo)
 registry.register("sync_odoo_shoplify_", _api_sync_shoplify_to_odoo)
-registry.register("sync_xero_", _api_sync_xero)
 registry.register("sync_xero_item_", _api_sync_odoo_item_to_xero)
- 
+registry.register("sync_xero_po_", _api_sync_odoo_po_to_xero)
+registry.register("sync_xero_so_", _api_sync_odoo_so_to_xero)
+
 # 
 counter = {"i": 0}
 #

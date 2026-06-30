@@ -22,6 +22,30 @@ class MCPXeroSyncSalesOrderService:
                     },
                     "required": ["access_token", "tenant_id"]
                 }
+            },
+            {
+                "name": "delete_all_preauth_sos",
+                "description": "Delete all active Sales Orders (Quotes) in Xero (DRAFT, SENT, ACCEPTED).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "access_token": {"type": "string", "description": "Fresh Xero OAuth2 access token"},
+                        "tenant_id": {"type": "string", "description": "Xero tenant ID"}
+                    },
+                    "required": ["access_token", "tenant_id"]
+                }
+            },
+            {
+                "name": "delete_all_postauth_sos",
+                "description": "Void all Awaiting Payment Invoices (AUTHORISISED) in Xero.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "access_token": {"type": "string", "description": "Fresh Xero OAuth2 access token"},
+                        "tenant_id": {"type": "string", "description": "Xero tenant ID"}
+                    },
+                    "required": ["access_token", "tenant_id"]
+                }
             }
         ]
 
@@ -165,8 +189,6 @@ class MCPXeroSyncSalesOrderService:
         return results
 
 
-
-
     def delete_all_preauth_sos(self, access_token, tenant_id):
         """
         Delete all active Sales Orders (Quotes) and Awaiting Payment Invoices in Xero.
@@ -201,16 +223,11 @@ class MCPXeroSyncSalesOrderService:
         except Exception as e:
             logging.error(f"Quote deletion failed: {str(e)}")
 
-         
         return results
 
 
+
     def delete_all_postauth_sos(self, access_token, tenant_id):
-        """
-        Delete all active Sales Orders (Quotes) and Awaiting Payment Invoices in Xero.
-        Quotes endpoint handles DRAFT/SENT/ACCEPTED.
-        Invoices endpoint handles AUTHORISED (Awaiting Payment).
-        """
         headers = {
             "Authorization": f"Bearer {access_token}",
             "xero-tenant-id": tenant_id,
@@ -220,8 +237,6 @@ class MCPXeroSyncSalesOrderService:
 
         results = []
 
-        
-        # 2. Delete Awaiting Payment Invoices (Authorised)
         try:
             get_invoices_url = "https://api.xero.com/api.xro/2.0/Invoices?Statuses=AUTHORISED"
             inv_resp = requests.get(get_invoices_url, headers=headers)
@@ -234,7 +249,8 @@ class MCPXeroSyncSalesOrderService:
                 payload = {"Invoices": inv_updates}
                 post_resp = requests.post(post_url, json=payload, headers=headers)
                 post_resp.raise_for_status()
-                results.append({"voided_invoices": post_resp.json().get("Invoices", [])})
+                # 🔑 Return raw list, not wrapped dict
+                results = post_resp.json().get("Invoices", [])
             else:
                 print("No Awaiting Payment Invoices found.")
         except Exception as e:

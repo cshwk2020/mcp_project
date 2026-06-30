@@ -4,6 +4,7 @@ from mcp_project.mcp_shared.vault_util import VaultUtil
 from mcp_project.mcp_shared.safe_utils import safe_dict, safe_datetime, safe_val, safe_float
 
 class MCPOdooClient:
+
     def __init__(self):
         vault = VaultUtil()
         self.odoo_user = vault.get_odoo_user()
@@ -33,6 +34,70 @@ class MCPOdooClient:
         )
         delivery_type_id = picking_type[0]["id"] if picking_type else None
         return warehouse_id, lot_stock_id, delivery_type_id
+
+
+
+    def delete_all_so(self):
+        """
+        Cancel then delete all Sales Orders in Odoo.
+        """
+        # 找出所有非 cancel 嘅 SO
+        so_ids = self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'sale.order', 'search',
+            [[('state', '!=', 'cancel')]]
+        )
+
+        if not so_ids:
+            return {"status": "success", "deleted": []}
+
+        # 先 cancel
+        self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'sale.order', 'action_cancel',
+            [so_ids]
+        )
+
+        # 再 unlink
+        self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'sale.order', 'unlink',
+            [so_ids]
+        )
+
+        return {"status": "success", "deleted": so_ids}
+
+
+    def delete_all_po(self):
+        """
+        Cancel then delete all Purchase Orders in Odoo (purchase.order).
+        """
+        po_ids = self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'purchase.order', 'search',
+            [[('state', '!=', 'cancel')]]
+        )
+
+        if not po_ids:
+            return {"status": "success", "deleted": []}
+
+        # Cancel orders (force non-None return)
+        _ = self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'purchase.order', 'button_cancel',
+            [po_ids]
+        ) or True
+
+        # Delete orders (force non-None return)
+        _ = self.models.execute_kw(
+            self.db, self.uid, self.odoo_pass,
+            'purchase.order', 'unlink',
+            [po_ids]
+        ) or True
+
+        return {"status": "success", "deleted": po_ids}
+
+
 
     def get_customer_location(self):
         locs = self.models.execute_kw(

@@ -173,7 +173,7 @@ def connectionAPI():
         response.raise_for_status()
     data = response.json()
     print("Connections:", data)
-    xero_tenant_id = data[1]["tenantId"]
+    xero_tenant_id = data[0]["tenantId"]
     return xero_tenant_id
 
 
