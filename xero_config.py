@@ -21,7 +21,10 @@ xero_tokens = {}
 xero_tenant_id = None
 XERO_AUTH_CODE = None  
 #####################################################
-XERO_INVOICE_URL = "https://api.xero.com/api.xro/2.0/Invoices"
+XERO_CONTACTS_URL = "https://api.xero.com/api.xro/2.0/Contacts"
+XERO_ITEMS_URL = "https://api.xero.com/api.xro/2.0/Items"
+XERO_PURCHASE_ORDERS_URL = "https://api.xero.com/api.xro/2.0/PurchaseOrders"
+XERO_INVOICES_URL = "https://api.xero.com/api.xro/2.0/Invoices"
 XERO_MANUAL_JOURNAL_URL = "https://api.xero.com/api.xro/2.0/ManualJournals"
 XERO_AccountCode_COGS = "310"
 XERO_AccountCode_Inventory = "630"
@@ -46,23 +49,59 @@ def load_xero_tokens():
 
     return xero_tokens
 
+ 
 
 def build_authorize_url():
-    #base_url = "https://login.xero.com/identity/connect/authorize"
-    
     # Define valid, clean scopes as a list to avoid hidden white-space/newline issues
+
+
+
     scope_list = [
+        # OIDC / user
         "openid",
         "profile",
         "email",
         "offline_access",
-        "accounting.invoices",   
-        "accounting.invoices.read", 
-        "accounting.manualjournals",
-        "accounting.manualjournals.read",
+
+        # Accounting - confirmed granular scopes
+        "accounting.settings",
         "accounting.contacts",
-        "accounting.contacts.read",
+        "accounting.invoices",
+        "accounting.payments",
+        "accounting.banktransactions",
+        "accounting.manualjournals",
+
+        # Reports - confirmed granular scopes
+        "accounting.reports.aged.read",
+        "accounting.reports.balancesheet.read",
+        "accounting.reports.profitandloss.read",
+        "accounting.reports.trialbalance.read",
+
+        # Payroll - confirmed scopes
+        "payroll.employees",
+        "payroll.payruns",
+        "payroll.settings",
+        "payroll.timesheets",
+
+        # Files, Assets, Projects
+        "files",
+        "assets",
+        "projects",
     ]
+
+
+
+
+
+    params = {
+        "response_type": "code",
+        "client_id": XERO_CLIENT_ID,
+        "redirect_uri": XERO_REDIRECT_URI,
+        "scope": " ".join(scope_list),  # Joins cleanly with exactly one space
+        "state": "123"
+    }
+    return f"{XERO_AUTHORIZE_BASE_URL}?{urllib.parse.urlencode(params)}"
+
  
     
     params = {
@@ -134,8 +173,29 @@ def connectionAPI():
         response.raise_for_status()
     data = response.json()
     print("Connections:", data)
-    xero_tenant_id = data[0]["tenantId"]
+    xero_tenant_id = data[1]["tenantId"]
     return xero_tenant_id
+
+
+def connectionAPIByName(target_name=None):
+    headers = {
+        "Authorization": f"Bearer {xero_tokens['access_token']}",
+        "Content-Type": "application/json"
+    }
+    response = requests.get(XERO_CONNECTION_URL, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    print("Connections:", data)
+
+    if target_name:
+        for tenant in data:
+            if tenant["tenantName"] == target_name:
+                return tenant["tenantId"]
+        raise ValueError(f"Tenant {target_name} not found")
+    else:
+        # 預設拎第一個
+        return data[0]["tenantId"]
+
 
 
 # http://localhost:8000/api/sync/odoo2xero?code=fyQnKtYEegsFprwphDe-5JSdDKfXHYX6GizR3hxASd4&scope=openid%20profile%20email%20offline_access%20accounting.invoices%20accounting.contacts&state=123&session_state=DiUJ_Gzy-yCJDFrGvv47TjXAyZy4AF_5d3ddpq3_Klk.99D9A0DBF92FE3F73EACC9F2B1D4FFA2

@@ -10,7 +10,7 @@ from mcp_project.config import ODOO_BASE_URL, ODOO_DB
 from mcp_project.xero_config import (
     load_xero_tokens, refresh_tokens, get_access_token,
     connectionAPI, xero_tenant_id, xero_tokens, 
-    XERO_INVOICE_URL, XERO_MANUAL_JOURNAL_URL,
+    XERO_INVOICES_URL, XERO_MANUAL_JOURNAL_URL,
     XERO_AccountCode_COGS, XERO_AccountCode_Inventory
 )
  
@@ -137,7 +137,7 @@ class MCPXeroSyncService:
         }
 
         # 1. 拉全部 Invoice (summary only)
-        r = requests.get(XERO_INVOICE_URL, headers=headers)
+        r = requests.get(XERO_INVOICES_URL, headers=headers)
         invoices = r.json().get("Invoices", [])
         print("delete_all_invoices...0....invoices==", invoices)
         if not invoices:
@@ -154,7 +154,7 @@ class MCPXeroSyncService:
 
             if status in ("DRAFT", "AUTHORISED", "SUBMITTED"):
                 # Step 0: GET full invoice by ID
-                get_url = f"{XERO_INVOICE_URL}/{inv_id}"
+                get_url = f"{XERO_INVOICES_URL}/{inv_id}"
                 full_resp = requests.get(get_url, headers=headers)
                 full_data = full_resp.json()
                 full_inv = full_data.get("Invoices", [])[0]
@@ -179,7 +179,7 @@ class MCPXeroSyncService:
 
                 print("delete_all_invoices...2....")
 
-                resp1 = requests.post(XERO_INVOICE_URL, json=update_payload, headers=headers)
+                resp1 = requests.post(XERO_INVOICES_URL, json=update_payload, headers=headers)
                 print("delete_all_invoices...3....")
 
                 if resp1.status_code not in (200, 201):
@@ -200,7 +200,7 @@ class MCPXeroSyncService:
 
                 print("delete_all_invoices...5....")
 
-                resp2 = requests.post(XERO_INVOICE_URL, json=void_payload, headers=headers)
+                resp2 = requests.post(XERO_INVOICES_URL, json=void_payload, headers=headers)
                 print("delete_all_invoices...6....")
 
                 if resp2.status_code in (200, 201):
@@ -327,22 +327,20 @@ class MCPXeroSyncService:
 
 
 
-    def pull_odoo_sale_orders_and_pickings(self):
 
+    def pull_odoo_sale_orders_and_pickings(self):
         try:
             # ─── STEP 1: GET LATEST SALE ORDERS BY CLIENT REF ───
-            # Notice the outer [ ] enclosing all 3 inner parameters
             so_groups = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "sale.order", "read_group",
                 [
-                    [("post_sync", "=", False)],     # Positional 1: Domain
-                    ["id:max", "client_order_ref"],  # Positional 2: Fields to aggregate
-                    ["client_order_ref"]             # Positional 3: Groupby array
+                    [("post_sync", "=", False)],
+                    ["id:max", "client_order_ref"],
+                    ["client_order_ref"]
                 ],
-                {"lazy": False}                      # Keyword arguments dict
+                {"lazy": False}
             )
-
             print("so_groups==", so_groups)
 
             so_ids = []
@@ -356,15 +354,14 @@ class MCPXeroSyncService:
 
             print("so_ids == ", so_ids)
 
-            # Read the full details of ONLY the latest Sale Orders
+            # Read full details of latest Sale Orders
             sale_orders = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
-                "sale.order", "read", 
-                [so_ids],                             # Position 1: IDs array wrapped in a list
+                "sale.order", "read",
+                [so_ids],
                 {"fields": ["id", "name", "client_order_ref", "partner_id", "date_order",
                             "order_line", "state", "amount_total", "amount_tax", "currency_id"]}
             )
-
             print("sale_orders == ", sale_orders)
 
             # ─── STEP 2: CHAIN PICKINGS TO LATEST SO NAMES ───
@@ -374,124 +371,88 @@ class MCPXeroSyncService:
 
             print("latest_so_names == ", latest_so_names)
 
-            # STEP 2b: 清理舊 pickings (避免重複 push)
+            # 清理舊 pickings
             old_pickings = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "stock.picking", "search_read",
                 [[("origin", "in", latest_so_names), ("post_sync", "=", True)]],
                 {"fields": ["id", "origin"]}
             )
-
             print("old_pickings == ", old_pickings)
 
-            
-            # If there are old pickings, clear them out
             for pk in old_pickings:
                 self.models.execute_kw(
                     ODOO_DB, self.uid, self.odoo_pass,
-                    "stock.picking", "write", 
-                    [[pk["id"]], {"active": False}]  # Correctly nested args array
+                    "stock.picking", "write",
+                    [[pk["id"]], {"active": False}]
                 )
 
-            # Query all pickings belonging to these specific live names
+            # Query all pickings belonging to these SO names
             pickings = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "stock.picking", "search_read",
                 [[("post_sync", "=", False), ("origin", "in", latest_so_names)]],
                 {"fields": ["id", "origin", "scheduled_date", "date_done", "move_ids", "state", "picking_type_id"]}
             )
-
-            print("\n\n---> pickings == ", pickings)
-
-
+            print("---> pickings == ", pickings)
 
             # ─── STEP 3: BUILD TRANSFORMATION MAPS ───
             sale_order_map = {}
             for pk in pickings:
                 sale_order_map.setdefault(pk["origin"], []).append(pk)
 
-            print("\n\nsale_order_map == ", sale_order_map)
+            print("sale_order_map == ", sale_order_map)
 
             sale_order_payloads = []
             picking_payloads = []
 
             for so in sale_orders:
-                print("\nsale_orders --> so == ", so)
                 pk_list = sale_order_map.get(so["name"], [])
-
-                print("\npk_list == ", pk_list)
-
                 if not pk_list:
-                    print("\not pk_list continue ", pk_list)
                     continue
 
                 client_ref = so.get("client_order_ref") or f"SO{so['id']}"
-
-                print("\nclient_ref == ", client_ref)
+                order_id = so["id"]
 
                 for pk in pk_list:
-                    print("\npk_list --> pk ...0...")
-                    print("\npk_list --> pk == ", pk)
-
                     invoice_number = str(client_ref)  # 唯一用 client_order_ref
-                    print("\npk_list --> pk ...1...")
-                    journal_number = f"{client_ref}00000{pk['id']}"
-                    print("\npk_list --> pk ...2...")
+                    # 🚨 修正 JournalNumber：用 sale_order_id + 00000 + picking_id
+                    journal_number = f"{order_id}00000{pk['id']}"
                     journel_reference = f"{client_ref}-PK{pk['id']}"
-                    print("\npk_list --> pk ...3...")
 
                     line_items = self._get_lineitems_from_sale_order(so)
-                    print("\npk_list --> pk ...4...", pk)
-                                          
                     journal_lines = self._get_journalitems_from_pickling(pk)
-                    print("\npk_list --> pk ...5...")
-                    order_id = so["id"]
-                    print("\npk_list --> pk ...6...")
-                     
-                    print("\npk_list --> pk ...10...")
 
                     # Invoice payload
                     sale_order_payloads.append({
-                            "order_id": order_id,
-                            "Type": "ACCREC",
-                            "Contact": {"Name": so["partner_id"][1]},
-                            "Date": so["date_order"],
-                            "DueDate": so["date_order"],
-                            "InvoiceNumber": invoice_number,
-                            "CurrencyCode": so["currency_id"][1] if so.get("currency_id") else "HKD",
-                            "LineItems": line_items,
-                            "Total": so["amount_total"],
-                            "TotalTax": so["amount_tax"], 
-                            "Status": "AUTHORISED" if so["state"] == "sale" else "VOIDED",
-                            "Reference": invoice_number
+                        "order_id": order_id,
+                        "Type": "ACCREC",
+                        "Contact": {"Name": so["partner_id"][1]},
+                        "Date": so["date_order"],
+                        "DueDate": so["date_order"],
+                        "InvoiceNumber": invoice_number,
+                        "CurrencyCode": so["currency_id"][1] if so.get("currency_id") else "HKD",
+                        "LineItems": line_items,
+                        "Total": so["amount_total"],
+                        "TotalTax": so["amount_tax"],
+                        "Status": "AUTHORISED" if so["state"] == "sale" else "VOIDED",
+                        "Reference": invoice_number
                     })
-
-                    print("\npk_list --> pk ...20...")
 
                     # Journal payload
                     picking_payloads.append({
-                            "order_id": order_id,
-                            "picking_id": pk["id"],
-                            "Narration": f"COGS for Picking {pk['id']} ({pk['picking_type_id'][1]})",
-                            "Date": pk.get("date_done") or pk["scheduled_date"],
-                            "JournalNumber": journal_number,
-                            "Reference": journel_reference,
-                            "JournalLines": journal_lines,
-                            "Status": "POSTED" if pk["state"] == "done" else "VOIDED"
+                        "order_id": order_id,
+                        "picking_id": pk["id"],
+                        "Narration": f"COGS for Picking {pk['id']} ({pk['picking_type_id'][1]})",
+                        "Date": pk.get("date_done") or pk["scheduled_date"],
+                        "JournalNumber": journal_number,
+                        "Reference": journel_reference,
+                        "JournalLines": journal_lines,
+                        "Status": "POSTED" if pk["state"] == "done" else "VOIDED"
                     })
 
-                    print("\npk_list --> pk ...30...")
-
-                    print("\n-----loop sale_order_payloads ", sale_order_payloads)
-                    print("\n-----loop picking_payloads ", picking_payloads)
-
-            print("\n\nsale_order_payloads == ", sale_order_payloads)
-            print("\n\npicking_payloads == ", picking_payloads)
-
             final_result = {"status": "success", "sale_orders": sale_order_payloads, "pickings": picking_payloads}
-            
-            print("\n\nfinal_result == ", final_result)
-            
+            print("final_result == ", final_result)
             return final_result
 
         except Exception as e:
@@ -499,7 +460,7 @@ class MCPXeroSyncService:
             return {"status": "error", "message": str(e)}
 
 
-  
+    
      
 
 
@@ -518,9 +479,9 @@ class MCPXeroSyncService:
             order_id = payload.get("order_id")   # 真正 Odoo sale.order.id
 
             # 查有冇已存在 Invoice
-            # check_url = f"{XERO_INVOICE_URL}?where=InvoiceNumber='{invoice_number}'"
+            # check_url = f"{XERO_INVOICES_URL}?where=InvoiceNumber='{invoice_number}'"
             check_url = (
-                f"{XERO_INVOICE_URL}?where=InvoiceNumber=='{invoice_number}' AND Status!=\"VOIDED\""
+                f"{XERO_INVOICES_URL}?where=InvoiceNumber=='{invoice_number}' AND Status!=\"VOIDED\""
             )
 
             check_resp = requests.get(check_url, headers=headers)
@@ -530,9 +491,9 @@ class MCPXeroSyncService:
                 invoice_id = data["Invoices"][0]["InvoiceID"]
                 invoice["InvoiceID"] = invoice_id
                 update_payload = {"Invoices": [invoice]}
-                response = requests.post(XERO_INVOICE_URL, json=update_payload, headers=headers)
+                response = requests.post(XERO_INVOICES_URL, json=update_payload, headers=headers)
             else:
-                response = requests.put(XERO_INVOICE_URL, json=payload, headers=headers)
+                response = requests.put(XERO_INVOICES_URL, json=payload, headers=headers)
 
             print("\n====\nupdate_payload...response == ", response.json())
             print("\n====\nupdate_payload...response.status_code == ", response.status_code)

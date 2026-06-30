@@ -6,14 +6,14 @@ import time
 from flask import Flask, request
 app = Flask(__name__)
 
-from xero_config import XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_REDIRECT_URI
-from xero_config import XERO_TOKEN_URL, XERO_AUTHORIZE_BASE_URL, CONFIG_BASE_PATH
-from xero_config import load_xero_tokens, save_xero_tokens, get_access_token
-from xero_config import xero_tenant_id
+from mcp_project.xero_config import XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_REDIRECT_URI
+from mcp_project.xero_config import XERO_TOKEN_URL, XERO_AUTHORIZE_BASE_URL, CONFIG_BASE_PATH
+from mcp_project.xero_config import load_xero_tokens, save_xero_tokens, get_access_token
+from mcp_project.xero_config import xero_tenant_id
 CODE_VERIFIER = None 
 
 """
-https://login.xero.com/identity/connect/authorize?response_type=code&client_id=BFFAF1576AA9423F833DF4A4730A06C1&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fsync%2Fodoo2xero&scope=openid+profile+email+offline_access+accounting.invoices+accounting.contacts&state=123
+https://login.xero.com/identity/connect/authorize?response_type=code&client_id=BFFAF1576AA9423F833DF4A4730A06C1&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fsync%2Fodoo2xero&scope=openid+profile+email+offline_access+accounting.items+accounting.items.read+accounting.invoices+accounting.invoices.read+accounting.manualjournals+accounting.manualjournals.read+accounting.contacts+accounting.contacts.read+accounting.payments+accounting.payments.read+accounting.banktransactions+accounting.banktransactions.read+accounting.attachments+accounting.attachments.read+accounting.reports.aged.read+accounting.reports.balancesheet.read+accounting.reports.banksummary.read+accounting.reports.budgetsummary.read+accounting.reports.executivesummary.read+accounting.reports.profitandloss.read+accounting.reports.trialbalance.read+accounting.reports.taxreports.read+accounting.reports.tenninetynine.read+payroll.employees+payroll.employees.read+payroll.payruns+payroll.payruns.read+payroll.payslip+payroll.payslip.read+payroll.settings+payroll.settings.read+payroll.timesheets+payroll.timesheets.read+files+files.read+assets+assets.read+projects+projects.read&state=123
 """
 
 @app.route("/api/sync/odoo2xero", methods=["POST", "GET"])

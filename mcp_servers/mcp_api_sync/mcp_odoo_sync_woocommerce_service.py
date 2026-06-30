@@ -7,9 +7,10 @@ from mcp_project.mcp_shared.safe_utils import safe_dict, safe_datetime, safe_val
 logger = logging.getLogger(__name__)
 
 
-class MCPOdooSyncService:
-    def __init__(self):
-        self.service_name = "Odoo Sync MCP Server"
+class MCPOdooSyncWoocommerceService:
+    def __init__(self, odoo_client):
+        self.service_name = "Odoo Sync Woocommerce MCP Server"
+        self.odoo_client = odoo_client
         _vault = VaultUtil()
         self.odoo_user = _vault.get_odoo_user()
         self.odoo_pass = _vault.get_odoo_pass()
@@ -17,18 +18,6 @@ class MCPOdooSyncService:
 
     def get_tools_schema(self):
         return [
-            {
-                "name": "sync_shoplify_orders_to_odoo",
-                "description": "Manual sync Shopify orders into Odoo (Invoice + Inventory).",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "orders": {"type": "array"},
-                        "warehouse": {"type": "string", "default": "shopify_wh"}
-                    },
-                    "required": ["orders"]
-                }
-            },
             {
                 "name": "sync_woocommerce_orders_to_odoo",
                 "description": "Manual sync WooCommerce orders into Odoo.",
@@ -43,8 +32,7 @@ class MCPOdooSyncService:
             }
         ]
 
-
-   # Helper: get warehouse + lot_stock_id + delivery_type_id
+    # Helper: get warehouse + lot_stock_id + delivery_type_id
     def _get_warehouse_context(self, warehouse_code):
         recs = self.models.execute_kw(
             ODOO_DB, self.uid, self.odoo_pass,
@@ -68,7 +56,6 @@ class MCPOdooSyncService:
 
         return warehouse_id, lot_stock_id, delivery_type_id
 
-
     def _get_customer_location(self):
         # Odoo 預設有一個 "Customer" location
         locs = self.models.execute_kw(
@@ -79,7 +66,6 @@ class MCPOdooSyncService:
         )
         return locs[0]["id"] if locs else None
 
-
     # WooCommerce sync
     def sync_woocommerce_orders_to_odoo(self, orders, warehouse_code="whwoo"):
         warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(warehouse_code)
@@ -89,173 +75,148 @@ class MCPOdooSyncService:
             lot_stock_id,
             delivery_type_id,
             source="woocommerce",
-            map_head=lambda o, w: self._map_woocommerce_order_head(o, warehouse_id, lot_stock_id),
-            map_lines=self._map_woocommerce_order_lines
+            # Expects 4 positional arguments from pipeline calls
+            map_head=lambda o, wid, lid, did: self._map_order_head(o, wid, lid),
+            map_lines=self._map_order_lines
         )
-
-
-    # Shopify sync
-    def sync_shoplify_orders_to_odoo(self, orders, warehouse_code="whsho"):
-        warehouse_id, lot_stock_id, delivery_type_id = self._get_warehouse_context(warehouse_code)
-        return self._sync_pipeline(
-            orders,
-            warehouse_id,
-            lot_stock_id,
-            delivery_type_id,
-            source="shopify",
-            map_head=lambda o, w: self._map_shoplify_order_head(o, warehouse_id, lot_stock_id),
-            map_lines=self._map_shoplify_order_lines
-        )
-
 
     def _revoke_order(self, order_ref, delivery_type_id):
-
         # ── STEP 1: Find existing sale order (not cancelled) ────────
-            existing = self.models.execute_kw(
+        existing = self.models.execute_kw(
+            ODOO_DB, self.uid, self.odoo_pass,
+            "sale.order", "search",
+            [[("client_order_ref", "=", order_ref), ("state", "!=", "cancel")]]
+        )
+        print("DEBUG...10...search existing == ", order_ref, existing)
+
+        if existing and len(existing) > 0:
+            sale_order_id = existing[0]
+            print("DEBUG...11...sale_order_id == ", sale_order_id)
+
+            # Read current state
+            so_data = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
-                "sale.order", "search",
-                [[("client_order_ref", "=", order_ref), ("state", "!=", "cancel")]]
-            )
-            print("DEBUG...10...search existing == ", order_ref, existing)
+                "sale.order", "read",
+                [[sale_order_id], ["state", "picking_ids"]]
+            )[0]
+            print("DEBUG...12...sale_order...so_data == ", so_data)
 
-            if existing and len(existing) > 0:
+            picking_ids = so_data["picking_ids"]
+            print("DEBUG...13...picking_ids == ", picking_ids)
 
-                sale_order_id = existing[0]
-                print("DEBUG...11...sale_order_id == ", sale_order_id)
-
-                # Read current state
-                so_data = self.models.execute_kw(
+            # ── STEP 2: Reverse all existing pickings ───────────────
+            for pid in picking_ids:
+                picking = self.models.execute_kw(
                     ODOO_DB, self.uid, self.odoo_pass,
-                    "sale.order", "read",
-                    [[sale_order_id], ["state", "picking_ids"]]
+                    "stock.picking", "read",
+                    [[pid], ["state", "origin", "location_id", "location_dest_id", "partner_id"]]
                 )[0]
-                print("DEBUG...12...sale_order...so_data == ", so_data)
+                print("DEBUG...14...picking == ", picking)
 
-                so_state = so_data["state"]
-                picking_ids = so_data["picking_ids"]
-                print("DEBUG...13...picking_ids == ", picking_ids)
+                if picking["state"] == "done":
+                    print("DEBUG...15...picking state == done")
 
-                # ── STEP 2: Reverse all existing pickings ───────────────
-                for pid in picking_ids:
-                    picking = self.models.execute_kw(
+                    # Read sale order name
+                    so_name = self.models.execute_kw(
                         ODOO_DB, self.uid, self.odoo_pass,
-                        "stock.picking", "read",
-                        [[pid], ["state","origin","location_id","location_dest_id","partner_id"]]
-                    )[0]
-                    print("DEBUG...14...picking == ", picking)
+                        "sale.order", "read",
+                        [[sale_order_id], ["name"]]
+                    )[0]["name"]
 
-                    if picking["state"] == "done":
-                        print("DEBUG...15...picking state == done")
+                    # Always create return picking
+                    return_picking_id = self.models.execute_kw(
+                        ODOO_DB, self.uid, self.odoo_pass,
+                        "stock.picking", "create", [{
+                            "origin": f"RETURN-{order_ref}-{so_name}",
+                            "picking_type_id": delivery_type_id,
+                            "location_id": picking["location_dest_id"][0],
+                            "location_dest_id": picking["location_id"][0],
+                            "partner_id": picking["partner_id"][0] if picking["partner_id"] else False,
+                            "sale_id": sale_order_id,
+                        }]
+                    )
+                    print("DEBUG...17... reverse picking......return_picking_id == ", return_picking_id)
 
+                    # Reverse moves
+                    move_ids = self.models.execute_kw(
+                        ODOO_DB, self.uid, self.odoo_pass,
+                        "stock.move", "search",
+                        [[("picking_id", "=", pid)]]
+                    )
+                    print("DEBUG...18...Reverse moves......move_ids == ", move_ids)
 
-                        # Read sale order name
-                        so_name = self.models.execute_kw(
+                    moves = self.models.execute_kw(
+                        ODOO_DB, self.uid, self.odoo_pass,
+                        "stock.move", "read",
+                        [move_ids, ["product_id", "product_uom_qty", "price_unit", "description_picking"]]
+                    )
+                    print("DEBUG...19...Reverse moves......moves == ", moves)
+
+                    for mv in moves:
+                        print("DEBUG...20...Reverse moves......stock.move :: create :: Reverse moves: ...BEFORE...")
+                        self.models.execute_kw(
                             ODOO_DB, self.uid, self.odoo_pass,
-                            "sale.order", "read",
-                            [[sale_order_id], ["name"]]
-                        )[0]["name"]
-
-
-                        # Always create return picking
-                        return_picking_id = self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.picking", "create", [{
-                                "origin": f"RETURN-{order_ref}-{so_name}",
-                                "picking_type_id": delivery_type_id,
+                            "stock.move", "create", [{
+                                "product_id": mv["product_id"][0],
+                                "product_uom_qty": mv["product_uom_qty"],
+                                "product_uom": 1,
+                                "price_unit": mv["price_unit"],
+                                "picking_id": return_picking_id,
                                 "location_id": picking["location_dest_id"][0],
                                 "location_dest_id": picking["location_id"][0],
-                                "partner_id": picking["partner_id"][0] if picking["partner_id"] else False,
-                                "sale_id": sale_order_id,
+                                "description_picking": mv["description_picking"],
                             }]
                         )
-                        print("DEBUG...17... reverse picking......return_picking_id == ", return_picking_id)
+                        print("DEBUG...20...Reverse moves......stock.move :: create :: Reverse moves: ...AFTER...")
 
-                        # Reverse moves
-                        move_ids = self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.move", "search",
-                            [[("picking_id","=",pid)]]
-                        )
-                        print("DEBUG...18...Reverse moves......move_ids == ", move_ids)
-
-                        moves = self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.move", "read",
-                            [move_ids, ["product_id","product_uom_qty","price_unit","description_picking"]]
-                        )
-                        print("DEBUG...19...Reverse moves......moves == ", moves)
-
-                        for mv in moves:
-                            print("DEBUG...20...Reverse moves......stock.move :: create :: Reverse moves: ...BEFORE...")
-                            self.models.execute_kw(
-                                ODOO_DB, self.uid, self.odoo_pass,
-                                "stock.move", "create", [{
-                                    "product_id": mv["product_id"][0],
-                                    "product_uom_qty": mv["product_uom_qty"],
-                                    "product_uom": 1,
-                                    "price_unit": mv["price_unit"],
-                                    "picking_id": return_picking_id,
-                                    "location_id": picking["location_dest_id"][0],
-                                    "location_dest_id": picking["location_id"][0],
-                                    "description_picking": mv["description_picking"],
-                                }]
-                            )
-                            print("DEBUG...20...Reverse moves......stock.move :: create :: Reverse moves: ...AFTER...")
-
-                        # Validate return picking
-                        self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.picking", "button_validate", [[return_picking_id]]
-                        )
-                        print("DEBUG...22...validate REVERSE PICKING...stock.picking :: button_validate (return_picking_id==", return_picking_id)
-
-                    elif picking["state"] in ("draft","waiting","confirmed","assigned"):
-                        print("DEBUG...51...state (NOT DONE) in (draft/waiting/confirmed/assigned)...==...", picking["state"])
-                        self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.picking", "action_cancel", [[pid]]
-                        )
-                        print("DEBUG...52...CANCEL NON-DONE-PICKING......stock.picking :: action_cancel...BEFORE...")
-                        self.models.execute_kw(
-                            ODOO_DB, self.uid, self.odoo_pass,
-                            "stock.picking", "unlink", [[pid]]
-                        )
-                        print("DEBUG...52...CANCEL NON-DONE-PICKING......stock.picking :: action_cancel...AFTER...")
-
-                # ── STEP 3: Cancel old sale order ───────────────────────
-                print("DEBUG...71...Cancel sale order for leaving AUDIT TRAIL...BEFORE...")
-                self.models.execute_kw(
-                    ODOO_DB, self.uid, self.odoo_pass,
-                    "sale.order", "action_cancel", [[sale_order_id]]
-                )
-                print("DEBUG...71...Cancel sale order for leaving AUDIT TRAIL...AFTER...")
-
-                # ── STEP 4: Delete old order lines ──────────────────────
-                line_ids = self.models.execute_kw(
-                    ODOO_DB, self.uid, self.odoo_pass,
-                    "sale.order.line", "search",
-                    [[("order_id","=",sale_order_id)]]
-                )
-                print("DEBUG...91...search old order lines...", sale_order_id, line_ids)
-                
-                if line_ids:
-                    # 不再 unlink，保留舊 lines
-                    print("DEBUG...92...KEEP old order lines for audit trail...(line_ids==", line_ids, ")")
-                    # 可選：更新舊 lines 狀態，方便辨識
+                    # Validate return picking
                     self.models.execute_kw(
                         ODOO_DB, self.uid, self.odoo_pass,
-                        "sale.order.line", "write",
-                        [line_ids, {"name": "[CANCELLED] "}]
+                        "stock.picking", "button_validate", [[return_picking_id]]
                     )
-                    print("DEBUG...93...mark old order lines as CANCELLED...(line_ids==", line_ids, ")")
+                    print("DEBUG...22...validate REVERSE PICKING...stock.picking :: button_validate (return_picking_id==", return_picking_id)
 
+                elif picking["state"] in ("draft", "waiting", "confirmed", "assigned"):
+                    print("DEBUG...51...state (NOT DONE) in (draft/waiting/confirmed/assigned)...==...", picking["state"])
+                    self.models.execute_kw(
+                        ODOO_DB, self.uid, self.odoo_pass,
+                        "stock.picking", "action_cancel", [[pid]]
+                    )
+                    print("DEBUG...52...CANCEL NON-DONE-PICKING......stock.picking :: action_cancel...BEFORE...")
+                    self.models.execute_kw(
+                        ODOO_DB, self.uid, self.odoo_pass,
+                        "stock.picking", "unlink", [[pid]]
+                    )
+                    print("DEBUG...52...CANCEL NON-DONE-PICKING......stock.picking :: action_cancel...AFTER...")
 
+            # ── STEP 3: Cancel old sale order ───────────────────────
+            print("DEBUG...71...Cancel sale order for leaving AUDIT TRAIL...BEFORE...")
+            self.models.execute_kw(
+                ODOO_DB, self.uid, self.odoo_pass,
+                "sale.order", "action_cancel", [[sale_order_id]]
+            )
+            print("DEBUG...71...Cancel sale order for leaving AUDIT TRAIL...AFTER...")
+
+            # ── STEP 4: Delete old order lines ──────────────────────
+            line_ids = self.models.execute_kw(
+                ODOO_DB, self.uid, self.odoo_pass,
+                "sale.order.line", "search",
+                [[("order_id", "=", sale_order_id)]]
+            )
+            print("DEBUG...91...search old order lines...", sale_order_id, line_ids)
+
+            if line_ids:
+                print("DEBUG...92...KEEP old order lines for audit trail...(line_ids==", line_ids, ")")
+                self.models.execute_kw(
+                    ODOO_DB, self.uid, self.odoo_pass,
+                    "sale.order.line", "write",
+                    [line_ids, {"name": "[CANCELLED] "}]
+                )
+                print("DEBUG...93...mark old order lines as CANCELLED...(line_ids==", line_ids, ")")
 
     def _create_order(self, order, warehouse_id, lot_stock_id, delivery_type_id, map_head, map_lines):
-
-        #
-        order_ref = str(order.get("id"))
-        order_head = map_head(order, warehouse_id)
+        # Fixed: Pass all 4 args down into the unified lambda interface
+        order_head = map_head(order, warehouse_id, lot_stock_id, delivery_type_id)
         order_lines = map_lines(order)
 
         sale_order_id = self.models.execute_kw(
@@ -284,28 +245,33 @@ class MCPOdooSyncService:
         new_pickings = self.models.execute_kw(
             ODOO_DB, self.uid, self.odoo_pass,
             "stock.picking", "search",
-            [[("sale_id","=",sale_order_id),("state","not in",["done","cancel"])]]
+            [[("sale_id", "=", sale_order_id), ("state", "not in", ["done", "cancel"])]]
         )
         print("DEBUG...112...stock.picking::search new_pickings...state not in (done,cancel)......(sale_order_id==", sale_order_id)
 
         for pid in new_pickings:
+            # 🚨 強制更新 picking_type_id，確保用 Woo 倉庫嘅 outgoing type
+            self.models.execute_kw(
+                ODOO_DB, self.uid, self.odoo_pass,
+                "stock.picking", "write",
+                [[pid], {"picking_type_id": delivery_type_id}]
+            )
+            print("DEBUG...113...stock.picking...force picking_type_id...(pid==", pid, "delivery_type_id==", delivery_type_id)
+
             self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "stock.picking", "action_assign", [[pid]]
             )
-            print("DEBUG...113...stock.picking...action_assign...(pid==", pid)
-            
             self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "stock.picking", "button_validate", [[pid]]
             )
-            print("DEBUG...114...stock.picking...button_validate...(pid==", pid)
 
         # ── STEP 9: Mark invoiced qty same as delivered ────────────
         line_ids = self.models.execute_kw(
             ODOO_DB, self.uid, self.odoo_pass,
             "sale.order.line", "search",
-            [[("order_id","=",sale_order_id)]]
+            [[("order_id", "=", sale_order_id)]]
         )
         print("DEBUG...115...sale.order.line...search...(sale_order_id==", sale_order_id, "line_ids==", line_ids)
 
@@ -313,7 +279,7 @@ class MCPOdooSyncService:
             lines = self.models.execute_kw(
                 ODOO_DB, self.uid, self.odoo_pass,
                 "sale.order.line", "read",
-                [line_ids, ["qty_delivered","qty_invoiced"]]
+                [line_ids, ["qty_delivered", "qty_invoiced"]]
             )
             print("DEBUG...116...sale.order.line...read...(lines==", lines)
 
@@ -328,17 +294,15 @@ class MCPOdooSyncService:
 
         return sale_order_id
 
-
     def _sync_pipeline(self, orders, warehouse_id, lot_stock_id, delivery_type_id, source, map_head, map_lines):
-        
         try:
             results = []
             for order in orders:
                 order_ref = str(order.get("id"))
-                order_head = map_head(order, warehouse_id)
+                # Fixed: Pass missing context mapping arguments down to lambda
+                order_head = map_head(order, warehouse_id, lot_stock_id, delivery_type_id)
                 order_lines = map_lines(order)
 
-                #
                 order_status = order.get("status")
 
                 # Skip non-settle statuses
@@ -358,18 +322,14 @@ class MCPOdooSyncService:
                     "status": "success"
                 })
 
-            return {"status":"success","results":results}
+            return {"status": "success", "results": results}
 
         except Exception as e:
             logger.error(f"{source} sync failed: {str(e)}")
-            return {"error":str(e)}
+            return {"error": str(e)}
 
-
-
-
-    def _get_or_create_woocommerce_partner(self, order):
+    def _get_or_create_partner(self, order):
         billing = order.get("billing", {})
-        shipping = order.get("shipping", {})
 
         email = billing.get("email")
         partner_ids = []
@@ -425,16 +385,15 @@ class MCPOdooSyncService:
         )
         return partner_id
 
-
-    def _map_woocommerce_order_head(self, order, warehouse_id, lot_stock_id):
+    def _map_order_head(self, order, warehouse_id, lot_stock_id):
         currency = self.models.execute_kw(
             ODOO_DB, self.uid, self.odoo_pass,
             "res.currency", "search_read",
-            [[("name", "=", order.get("currency","HKD"))]],
+            [[("name", "=", order.get("currency", "HKD"))]],
             {"fields": ["id"], "limit": 1}
         )
         currency_id = currency[0]["id"] if currency else None
-        partner_id = self._get_or_create_woocommerce_partner(order)
+        partner_id = self._get_or_create_partner(order)
 
         order_head = safe_dict({
             "partner_id": partner_id,
@@ -452,8 +411,7 @@ class MCPOdooSyncService:
         print('_map_woocommerce_order_head == ', order_head)
         return order_head
 
-
-    def _map_woocommerce_order_lines(self, order):
+    def _map_order_lines(self, order):
         lines = []
         for line in order.get("line_items", []):
             sku = line.get("sku")
@@ -467,40 +425,21 @@ class MCPOdooSyncService:
                 if product_ids:
                     product_id = product_ids[0]
 
+            if not product_id:
+                raise ValueError(f"SKU {sku} not found in Odoo. Sync products first!")
+
             lines.append({
                 "product_id": product_id,
                 "name": line.get("name"),
                 "product_uom_qty": line.get("quantity"),
-                "price_unit": line.get("price"),
+                "price_unit": safe_float(line.get("price")),
             })
         return lines
-
-    """
-    def _map_shoplify_order_head(self, order, warehouse):
-        return {
-            "partner_id": order.get("customer", {}).get("id"),
-            "shopify_order_id": order.get("id"),
-            "state": "draft",
-            "currency_id": order.get("currency"),
-            "warehouse_id": warehouse,
-        }
-
-    def _map_shoplify_order_lines(self, order):
-        lines = []
-        for line in order.get("line_items", []):
-            lines.append({
-                "product_id": line.get("product_id"),
-                "name": line.get("title"),
-                "product_uom_qty": line.get("quantity"),
-                "price_unit": line.get("price"),
-            })
-        return lines
-    """
 
     def _get_models(self, odoo_user, odoo_pass):
-        common = xmlrpc.client.ServerProxy(f"{ODOO_BASE_URL}/xmlrpc/2/common")
+        common = xmlrpc.client.ServerProxy(f"{ODOO_BASE_URL}/xmlrpc/2/common", allow_none=True)
         uid = common.authenticate(ODOO_DB, odoo_user, odoo_pass, {})
         if not uid:
             raise PermissionError("Failed authentication against Odoo.")
-        models = xmlrpc.client.ServerProxy(f"{ODOO_BASE_URL}/xmlrpc/2/object")
+        models = xmlrpc.client.ServerProxy(f"{ODOO_BASE_URL}/xmlrpc/2/object", allow_none=True)
         return uid, models

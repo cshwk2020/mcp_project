@@ -10,8 +10,11 @@ from mcp_project.mcp_servers.mcp_ocr.ocr_service import MCPOcrService
 from mcp_project.mcp_servers.mcp_llm.deepseek_service import MCPDeepSeekService 
 from mcp_project.mcp_servers.mcp_odoo.odoo_expense_service import MCPOdooExpenseService
 from mcp_project.mcp_servers.mcp_llm_prompts.llm_extract_ocr import MCPLLMExtractOcrService
-from mcp_project.mcp_servers.mcp_api_sync.mcp_odoo_sync_service import MCPOdooSyncService 
+from mcp_project.mcp_servers.mcp_api_sync.mcp_odoo_sync_woocommerce_service import MCPOdooSyncWoocommerceService 
+from mcp_project.mcp_servers.mcp_api_sync.mcp_odoo_sync_shoplify_service import MCPOdooSyncShoplifyService 
 from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_service import MCPXeroSyncService 
+from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_item_service import MCPXeroSyncItemService
+from mcp_project.mcp_shared.mcp_odoo_client import MCPOdooClient    
 
 
 app = Flask(__name__)
@@ -42,14 +45,17 @@ class ServiceRegistry:
         raise ValueError(f"Tool {tool_name} not found")
 
 
-
+#
+odoo_client = MCPOdooClient()
 #
 _ocr_service = MCPOcrService()
 _llm_service = MCPDeepSeekService()
 _odoo_expense_service = MCPOdooExpenseService(_ocr_service)
 _llm_prompt_ocr = MCPLLMExtractOcrService(_odoo_expense_service, _llm_service)
-_api_sync_odoo = MCPOdooSyncService()
-_api_sync_xero = MCPXeroSyncService()
+_api_sync_woocommerce_to_odoo = MCPOdooSyncWoocommerceService(odoo_client)
+_api_sync_shoplify_to_odoo = MCPOdooSyncShoplifyService(odoo_client)
+_api_sync_odoo_to_xero = MCPXeroSyncService()
+_api_sync_odoo_item_to_xero = MCPXeroSyncItemService(odoo_client)
 #
 registry = ServiceRegistry()
 registry.register("hello_", HelloWorldService())
@@ -57,8 +63,11 @@ registry.register("ocr_", _ocr_service)
 registry.register("llm_", _llm_service)
 registry.register("odoo_expense_", _odoo_expense_service)
 registry.register("llmprompt_", _llm_prompt_ocr)
-registry.register("sync_odoo_", _api_sync_odoo)
+registry.register("sync_odoo_woo_", _api_sync_woocommerce_to_odoo)
+registry.register("sync_odoo_shoplify_", _api_sync_shoplify_to_odoo)
 registry.register("sync_xero_", _api_sync_xero)
+registry.register("sync_xero_item_", _api_sync_odoo_item_to_xero)
+ 
 # 
 counter = {"i": 0}
 #

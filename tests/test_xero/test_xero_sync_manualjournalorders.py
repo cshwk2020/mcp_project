@@ -5,7 +5,7 @@ import datetime
 from mcp_project.xero_config import (
     load_xero_tokens, refresh_tokens, get_access_token,
     connectionAPI, xero_tenant_id, xero_tokens, 
-    XERO_INVOICE_URL, XERO_MANUAL_JOURNAL_URL
+    XERO_INVOICES_URL, XERO_MANUAL_JOURNAL_URL
 )
 from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_service import MCPXeroSyncService
 
@@ -13,121 +13,7 @@ from mcp_project.mcp_servers.mcp_api_sync.mcp_xero_sync_service import MCPXeroSy
 @pytest.fixture(scope="module")
 def xero_sync_service():
     return MCPXeroSyncService()
-
-"""
-@pytest.mark.skip(reason="temporarily disabled")
-def test_delete_all_invoices():
-    global xero_tenant_id, xero_tokens
-    refresh_tokens()
-    xero_tokens = load_xero_tokens()
-    xero_tenant_id = connectionAPI()
-
-    headers = {
-        "Authorization": f"Bearer {xero_tokens['access_token']}",
-        "xero-tenant-id": xero_tenant_id,
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
-
-    # 1. Fetch all Invoices currently sitting in the organization ledger
-    # We query the first page to pull active transactional records
-    fetch_url = "https://api.xero.com/api.xro/2.0/Invoices"
-    print(f"Fetching invoices from: {fetch_url}")
-    
-    r = requests.get(fetch_url, headers=headers)
-    if r.status_code != 200:
-        print(f"Error fetching invoices: {r.status_code} - {r.text}")
-        return
-        
-    invoices = r.json().get("Invoices", [])
-
-    print("invoices==", invoices)
-    
-    if not invoices:
-        print("No invoices discovered inside this Xero organization to clear.")
-        return
-
-    print(f"Discovered {len(invoices)} invoices. Starting clean sweep routine...")
-
-    # 2. Iterate through each discovered invoice asset record
-    for inv in invoices:
-        inv_id = inv["InvoiceID"]
-        inv_num = inv["InvoiceNumber"]
-        status = inv["Status"]
-        ts = time.time_ns()
-
-        # Only open/active invoices can be cancelled (VOIDED or DELETED)
-        #if status in ("DRAFT", "AUTHORISED", "SUBMITTED"):
-        if True:
-            print(f"\nProcessing elimination matrix for Invoice: {inv_num} (ID: {inv_id})")
-
-            # Step A: Fetch the full details of this specific invoice by its unique ID
-            # This ensures we have the complete Contact and LineItems metadata layout intact
-            get_url = f"https://api.xero.com/api.xro/2.0/Invoices/{inv_id}"
-            full_resp = requests.get(get_url, headers=headers)
-            if full_resp.status_code != 200:
-                print(f"Skipping {inv_num}. Could not fetch full record details.")
-                continue
-                
-            full_inv = full_resp.json().get("Invoices", [])[0]
-
-            # Strip out any historical tracking revision tags if they already exist
-            base_num = full_inv['InvoiceNumber'].split("-REV-")[0]
-            renamed_number = f"{base_num}-REV-{ts}"
-
-            # -------------------------------------------------------------
-            # STEP 1: Rename the Invoice ONLY (Keep its active status)
-            # -------------------------------------------------------------
-            rename_payload = {
-                "Invoices": [{
-                    "InvoiceID": inv_id,
-                    "Type": full_inv["Type"],
-                    "Contact": full_inv["Contact"],
-                    "Date": full_inv["Date"],
-                    "DueDate": full_inv["DueDate"],
-                    "InvoiceNumber": renamed_number,   # Attach the high-precision timestamp string
-                    "LineItems": full_inv["LineItems"],
-                    "Status": full_inv["Status"]       # Retain original open status state
-                }]
-            }
-
-            # Use POST here to update the existing record asset instead of a PUT duplicate action
-            resp1 = requests.post("https://api.xero.com/api.xro/2.0/Invoices", json=rename_payload, headers=headers)
-
-            if resp1.status_code not in (200, 201):
-                print(f"[Step 1 Fail] Rename rejected for {inv_num}: {resp1.status_code} - {resp1.text}")
-                continue
-            else:
-                print(f"[Step 1 Success] Invoice {inv_num} renamed to sequence key: {renamed_number}")
-
-            # -------------------------------------------------------------
-            # STEP 2: Cancel/Void the newly renamed Invoice record
-            # -------------------------------------------------------------
-            # Rules: DRAFT statuses can transition to 'DELETED'. AUTHORISED/SUBMITTED must transition to 'VOIDED'
-            target_status = "DELETED" if status == "DRAFT" else "VOIDED"
-            
-            void_payload = {
-                "Invoices": [{
-                    "InvoiceID": inv_id,
-                    "InvoiceNumber": renamed_number,   # Reference the newly saved timestamp name
-                    "Type": full_inv["Type"],
-                    "Status": target_status            # Target terminal state
-                }]
-            }
-
-            resp2 = requests.post("https://api.xero.com/api.xro/2.0/Invoices", json=void_payload, headers=headers)
-
-            if resp2.status_code in (200, 201):
-                print(f"[Step 2 Success] Invoice {renamed_number} has been finalized as {target_status}!")
-            else:
-                print(f"[Step 2 Fail] Terminal status update rejected for {renamed_number}: {resp2.status_code} - {resp2.text}")
-   
-        else:
-            print(f"Skip invoice {inv_num} - Status is already in locked terminal state: {status}")
-
-    print("\n[Finished] Invoice clean loop finished execution.")
-"""
-
+ 
 
 
 @pytest.mark.skip(reason="temporarily disabled")
@@ -165,6 +51,7 @@ def test_pull_payloads(xero_sync_service):
     print("test_pull_payloads...payloads==", payloads)
  
 
+@pytest.mark.skip(reason="temporarily disabled")
 def test_sync_all_transactions(xero_sync_service):
     #
     global xero_tenant_id, xero_tokens
@@ -176,7 +63,7 @@ def test_sync_all_transactions(xero_sync_service):
     xero_sync_service.delete_all_invoices(access_token, xero_tenant_id)
     xero_sync_service.delete_all_COGS(access_token, xero_tenant_id)
     #
-    xero_sync_service.sync_all_transactions(access_token, xero_tenant_id)
+    #xero_sync_service.sync_all_transactions(access_token, xero_tenant_id)
 
 ##########################################################
 
@@ -209,8 +96,8 @@ def test_xero_api_update_invoice():
     }
 
     # 查有冇已存在 Invoice
-    #check_url = f"{XERO_INVOICE_URL}?InvoiceNumber=88149148"
-    check_url = f"{XERO_INVOICE_URL}?where=InvoiceNumber==\"{TEST_INVOICE_ID}\""
+    #check_url = f"{XERO_INVOICES_URL}?InvoiceNumber=88149148"
+    check_url = f"{XERO_INVOICES_URL}?where=InvoiceNumber==\"{TEST_INVOICE_ID}\""
     check_resp = requests.get(check_url, headers=headers)
     data = check_resp.json()
 
@@ -224,12 +111,12 @@ def test_xero_api_update_invoice():
             "Invoices": [payload]   # 必須用 array
         }
          
-        update_url = XERO_INVOICE_URL
+        update_url = XERO_INVOICES_URL
         response = requests.post(update_url, json=update_payload, headers=headers)
 
     else:
         print("sync_Invoices...CREATE IS PUT...")
-        response = requests.put(XERO_INVOICE_URL, json=payload, headers=headers)
+        response = requests.put(XERO_INVOICES_URL, json=payload, headers=headers)
 
 
     print("DEBUG status_code==", response.status_code)
