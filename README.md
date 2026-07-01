@@ -420,7 +420,7 @@ class ProductTemplate(models.Model):
 
 ```
 
-### payload：PurchaseOrders batch 
+### payload test run sample：PurchaseOrders batch 
 
 ```
  {'PurchaseOrders': [
@@ -439,7 +439,7 @@ class ProductTemplate(models.Model):
         'Reference': '34000000'}]}
 ```
 
-### payload：Bills batch, needed to turn PO status to billed as Account Payable, and Xero will start taking the PO line items for consideration when auto calculate COGS.
+### payload test run sample：Bills batch, needed to turn PO status to billed as Account Payable, and Xero will start taking the PO line items for consideration when auto calculate COGS.
 
 ```
  {'Invoices': [
@@ -463,7 +463,7 @@ class ProductTemplate(models.Model):
 ```
 
 
-### payload：SaleOrders batch 
+### payload test run sample：SaleOrders batch 
 
 ```
  {'Invoices': [
