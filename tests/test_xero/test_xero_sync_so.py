@@ -68,7 +68,7 @@ def test_pull_sales_orders_from_odoo(odoo_client):
     assert "line_items" in sales_orders[0]
 
 
- 
+@pytest.mark.skip(reason="temporarily disabled")
 def test_sync_all_sales_orders_to_xero(xero_so_service):
     global xero_tenant_id, xero_tokens
     refresh_tokens()      

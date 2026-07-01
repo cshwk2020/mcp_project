@@ -154,6 +154,8 @@ class MCPXeroSyncSalesOrderService:
             payload = {"Invoices": [self._build_xero_so_payload(so) for so in batch]}
             print(f">>> Sending SO batch {i//50+1}, size={len(batch)}")
 
+            print('SO payload == ', payload)
+
             # 4. Push to Xero
             batch_result = self._post_to_xero(payload, access_token, tenant_id)
 

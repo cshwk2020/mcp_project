@@ -109,6 +109,9 @@ class MCPXeroSyncItemService:
             payload = {"Items": [self._build_xero_item_payload(item) for item in batch]}
             print(f">>> Sending Item batch {i//50+1}, size={len(batch)}")
 
+            print('item payload == ', payload)
+
+
             # 4. Push to Xero
             batch_result = self._post_to_xero(payload, access_token, tenant_id)
 

@@ -46,6 +46,10 @@ class MCPXeroSyncPurchaseOrderService:
         }
         try:
             response = requests.post(XERO_PURCHASE_ORDERS_URL, json=payload, headers=headers)
+            
+            print("Status:", response.status_code)
+            print("Response:", response.text)
+
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -116,6 +120,8 @@ class MCPXeroSyncPurchaseOrderService:
             # 3. Build payload
             payload = {"PurchaseOrders": [self._build_xero_po_payload(po) for po in batch]}
             print(f">>> Sending PO batch {i//50+1}, size={len(batch)}")
+
+            print('PO payload == ', payload)
 
             # 4. Push to Xero
             batch_result = self._post_to_xero(payload, access_token, tenant_id)
@@ -202,6 +208,8 @@ class MCPXeroSyncPurchaseOrderService:
             })
 
         invoice_payload = {"Invoices": invoices}
+
+        print('invoice_payload == ', invoice_payload)
 
         # 1. Post all Vendor Bills (Invoices) in one call
         invoice_url = "https://api.xero.com/api.xro/2.0/Invoices"

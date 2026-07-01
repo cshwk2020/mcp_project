@@ -112,6 +112,11 @@ class MCPXeroSyncContactService:
             return existing
 
         payload = {"Contacts": [self._build_xero_contact_payload(contact)]}
+
+
+        print('contact payload == ', payload)
+
+
         result = self._post_to_xero(payload, access_token, tenant_id)
         if result and result.get("Contacts"):
             contact_id = result["Contacts"][0]["ContactID"]

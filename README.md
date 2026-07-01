@@ -64,7 +64,7 @@ Prototyping Setup:
 
 - we observed how COGS for sale_order_2 changed, due to purchase_order_1 and purchase_order_2 difference in purchase costs, which is auto calculated by xero.
 
-- Our focus is to demo python code to sync sale.order and stock.picking from ODOO to Xero as invoice and COGS, and setting correct XERO chart of account code in sync API payload.
+- Our focus is to demo python code to sync sale.order and stock.picking from ODOO to Xero as invoice and COGS, in sync API via payload.
 
 
 ### Screenshot of Prototyping test cases
@@ -349,9 +349,9 @@ id_token : JWT，包含用戶 profile（email、name 等）。
 唔係用嚟 refresh，只係身份資訊。
 
  
-### sync ODOO sale.order and stock.picking to XERO
+> ### sync ODOO sale.order and stock.picking to XERO
 
-> ### 設計：extends ODOO to add sync_status, auto set to PENDING when any field changed
+### 設計：extends ODOO to add sync_status, auto set to PENDING when any field changed
 
 ```
  class SaleOrder(models.Model):
@@ -420,6 +420,70 @@ class ProductTemplate(models.Model):
 
 ```
 
+### payload：PurchaseOrders batch 
+
+```
+ {'PurchaseOrders': [
+    {
+        'PurchaseOrderNumber': 'P00034', 
+        'Contact': {
+            'ContactID': '17c2e63f-59f8-48ff-b07c-3d297bfd7e73'}, 
+        'Date': '2026-07-01 02:11:22', 
+        'Status': 'AUTHORISED', 
+        'LineItems': [
+            {
+                'ItemCode': 'HM008', 
+                'Description': '[HM008] Air Purifier 2026', 
+                'Quantity': 100.0, 
+                'UnitAmount': 15.0}], 
+        'Reference': '34000000'}]}
+```
+
+### payload：Bills batch, needed to turn PO status to billed as Account Payable, and Xero will start taking the PO line items for consideration when auto calculate COGS.
+
+```
+ {'Invoices': [
+    {
+        'Type': 'ACCPAY', 
+        'Contact': {
+            'ContactID': '17c2e63f-59f8-48ff-b07c-3d297bfd7e73'}, 
+        'Date': '2026-07-01', 
+        'DueDate': '2026-07-01', 
+        'LineItems': [
+            {
+             'ItemCode': 'HM008', 
+             'Description': '[HM008] Air Purifier 2026', 
+             'Quantity': 100.0, 
+             'UnitAmount': 15.0, 
+             'TaxType': 'NONE', 
+             'PurchaseOrderLineItemID': '5427719f-b02c-4e25-b957-f38afc3ea154'}], 
+        'Status': 'AUTHORISED', 
+        'Reference': 'P00034', 
+        .......}]}
+```
+
+
+### payload：SaleOrders batch 
+
+```
+ {'Invoices': [
+    {
+        'Type': 'ACCREC', 
+        'InvoiceNumber': 'S00283', 
+        'Contact': {
+            'ContactID': 'dffbe90d-0cd7-419e-8969-f8534242b09a', 
+            'EmailAddress': 'cshwk2021@gmail.com'}, 
+        'Date': '2026-07-01 02:06:19', 
+        'DueDate': '2026-05-27', 
+        'Status': 'AUTHORISED', 
+        'LineItems': [
+            {'ItemCode': 'HM008', 
+            'Description': 'Air Purifier 2026', 
+            'Quantity': 2.0, 
+            'UnitAmount': 80.0, 
+            'AccountCode': '200'}], 
+        'Reference': 'ODOO-SO-271'}]} 
+```
 
 ---
 ---

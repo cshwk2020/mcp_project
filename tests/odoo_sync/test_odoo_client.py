@@ -7,7 +7,7 @@ def odoo_client():
     return MCPOdooClient()
 
 
-@pytest.mark.skip(reason="temporarily disabled")
+
 def test_delete_all_sales_orders(odoo_client):
     result = odoo_client.delete_all_so()
     print("delete_all_so result:", result)

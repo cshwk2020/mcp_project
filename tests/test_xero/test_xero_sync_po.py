@@ -71,7 +71,7 @@ def test_pull_purchase_orders_from_odoo(odoo_client):
     assert "line_items" in purchase_orders[0]
 
 
-@pytest.mark.skip(reason="temporarily disabled")
+
 def test_sync_all_purchase_orders_to_xero(xero_po_service):
     global xero_tenant_id, xero_tokens
     refresh_tokens()      
