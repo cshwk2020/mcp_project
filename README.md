@@ -426,8 +426,13 @@ class ProductTemplate(models.Model):
 
 ## Appendix: Next Future Iteration
 
-- For current iteration, we focus in online_store -> odoo -> xero.
+- For current iteration, we focus in MCP servers for online_store -> odoo -> xero.
  
+> ### setup langchain pipeline to call all our sync steps in single call, rather than using tests/*. 
+
+- as we keep create orders in woocommerce and shoplify, our pipeline should be able to continously sync them from ODOO to XERO for bookkeeping, while we left ODOO as centralized operation warehouse.
+
+
 > ### auto re-allocate product QTY from ODOO to woocommerce and shoplify, 
 
 - ensure no oversell in either online store by locking product QTY in ODOO virtual warehouse of woocommerce and shoplify,
